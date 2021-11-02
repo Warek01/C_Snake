@@ -1,14 +1,18 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <conio.h>
 #include <math.h>
 #include <stdint.h>
+#include <time.h>
 
 #if defined(WIN32) || defined(_WIN32)
   #define CLS "cls"
+  #include <windows.h>
+#elif _POSIX_C_SOURCE >= 199309L
+  #define CLS "clear"
 #elif defined(__unix__) || defined(linux)
   #define CLS "clear"
+  #include <unistd.h>
 #endif
 
 typedef struct
@@ -17,7 +21,7 @@ typedef struct
   int y;
 } Position;
 
-typedef struct 
+typedef struct
 {
   uint64_t start;
   uint64_t end;
@@ -40,14 +44,12 @@ typedef struct timespec Time;
 
 #define W 19
 #define H 9
-#define UPDATE_DELAY 200
-#define MS UPDATE_DELAY * 1000 * 1000
+#define UPDATE_DELAY 250
 #define HEAD 1
 #define FOOD 2
 #define BODY 3
 #define NONE 0
 
-Time delay = {0, MS};
 Snake snake;
 Position food, center, body_nodes[W * H], byte_position;
 Timer timer;
@@ -60,8 +62,9 @@ int score = 0,
 void nl(void);
 int randint(int, int);
 Position generate_food(int[W][H]);
+void sleep_ms(unsigned);
 
-int main(void)
+int main(int argc, char **argv)
 {
   srand(time(NULL));
   timer.start = time(NULL);
@@ -135,7 +138,7 @@ int main(void)
 
   while (!gameover)
   {
-    nanosleep(&delay, NULL);
+    sleep_ms(UPDATE_DELAY);
     system(CLS);
 
     if (kbhit())
@@ -169,44 +172,44 @@ int main(void)
       break;
 
     case DOWN:
-      grid[snake.head.x][snake.head.y] = 0;
+      grid[snake.head.x][snake.head.y] = NONE;
 
       if (snake.head.y < H - 1)
       {
-        grid[snake.head.x][snake.head.y + 1] = 1;
+        grid[snake.head.x][snake.head.y + 1] = HEAD;
         snake.head.y++;
       }
       else
       {
-        grid[snake.head.x][snake.head.y] = 0;
+        grid[snake.head.x][snake.head.y] = NONE;
         grid[snake.head.x][0] = 1;
         snake.head.y = 0;
       }
       break;
 
     case RIGHT:
-      grid[snake.head.x][snake.head.y] = 0;
+      grid[snake.head.x][snake.head.y] = NONE;
       if (snake.head.x < W - 1)
       {
-        grid[snake.head.x + 1][snake.head.y] = 1;
+        grid[snake.head.x + 1][snake.head.y] = HEAD;
         snake.head.x++;
       }
       else
       {
-        grid[0][snake.head.y] = 1;
+        grid[0][snake.head.y] = HEAD;
         snake.head.x = 0;
       }
       break;
     case LEFT:
-      grid[snake.head.x][snake.head.y] = 0;
+      grid[snake.head.x][snake.head.y] = NONE;
       if (snake.head.x > 0)
       {
-        grid[snake.head.x - 1][snake.head.y] = 1;
+        grid[snake.head.x - 1][snake.head.y] = HEAD;
         snake.head.x--;
       }
       else
       {
-        grid[W - 1][snake.head.y] = 1;
+        grid[W - 1][snake.head.y] = HEAD;
         snake.head.x = W - 1;
       }
       break;
@@ -403,4 +406,23 @@ Position generate_food(int grid[W][H])
   Position food = {x, y};
 
   return food;
+}
+
+void sleep_ms(unsigned int ms)
+{
+  #if defined(WIN32) || defined(_WIN32)
+    Sleep(ms);
+  #elif _POSIX_C_SOURCE >= 199309L
+    struct timespec delay = {0, ms * 1000 * 1000};
+    nanosleep(&delay, NULL);
+  #elif defined(__unix__) || defined(linux)
+    if (ms >= 1000)
+      sleep(ms / 1000);
+    usleep((ms % 1000) * 1000);
+  #else
+    struct timeval tv;
+    tv.tv_sec = milliseconds / 1000;
+    tv.tv_usec = milliseconds % 1000 * 1000;
+    select(0, NULL, NULL, NULL, &tv);
+  #endif
 }
